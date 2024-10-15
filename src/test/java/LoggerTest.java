@@ -1,6 +1,8 @@
 import org.example.ColorCodes;
 import org.example.Logger;
 import org.example.Emoji;
+
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -140,7 +142,59 @@ public class LoggerTest {
 
         logger.logWithCharacterScrambledWords("Hello world");
         logger.logWithSynonyms("happy");
-//        logger.logWithMarkovChainTransformation("the quick brown fox jumps over the lazy dog");
+
+        logger.logWithMarkovChainTransformation("the quick brown fox jumps over the lazy dog");
+        logger.logWithMarkovChainTransformation("error");
+                String message = "Error occurred while processing";
+        logger.logIf(message, msg -> msg.contains("Error"));
+        // Expected Output: Error occurred while processing
+        logger.logIf("Success", msg -> msg.contains("Error"));
+        // Expected Output: (No output since the condition is not met)
+        logger.logIf("Error occurred", msg -> msg.contains("Error"));
+
+        Logger levelBasedLogger = Logger.getLevelBasedLogger(Logger.INFO);
+
+        System.out.println("Log Level Test:");
+        levelBasedLogger.error("This is an error message");
+        levelBasedLogger.warn("This is a warning message");
+        levelBasedLogger.info("This is an info message");
+        levelBasedLogger.debug("This is a debug message");  // Should not print
+        levelBasedLogger.trace("This is a trace message");  // Should not print
+
+        System.out.println("\n----- Timestamp Test -----");
+        logger.logWithTimestamp("Service started successfully");
+
+        System.out.println("\n----- Elapsed Time Test -----");
+        logger.logWithElapsedTime("Executing task", () -> {
+            try {
+                Thread.sleep(1500);  // Simulate task execution
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        System.out.println("\n----- Contextual Logging Test -----");
+        Map<String, String> context = Map.of("userId", "12345", "sessionId", "abc123");
+        logger.logWithContext("User logged in", context);
+
+        System.out.println("\n----- Pattern Matching Test -----");
+        logger.logIfMatchesPattern("Error 404", "Error [0-9]+");  // Should match and log
+        logger.logIfMatchesPattern("All good", "Error [0-9]+");   // Should not log
+
+        System.out.println("\n----- Progress Bar Test -----");
+        for (int i = 0; i <= 10; i++) {
+            logger.logWithProgressBar("Downloading...", i, 10);
+            try {
+                Thread.sleep(500);  // Simulate progress
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        System.out.println("\n----- Time Zone Logging Test -----");
+        logger.logWithTimeZone("Server started", ZoneId.of("America/New_York"));
+        logger.logWithTimeZone("User logged in", ZoneId.of("Europe/London"));
+        logger.logWithTimeZone("Backup completed", ZoneId.of("Asia/Tokyo"));
 
     }
 }

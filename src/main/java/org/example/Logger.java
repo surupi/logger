@@ -6,9 +6,12 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -90,10 +93,10 @@ public interface Logger {
         }
     }
 
-    default void logWithTimestamp(String message) {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        log("[" + timestamp + "] " + message);
-    }
+//    default void logWithTimestamp(String message) {
+//        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+//        log("[" + timestamp + "] " + message);
+//    }
 
     default void logExecutionTime(Runnable action) {
         long start = System.currentTimeMillis();
@@ -466,30 +469,161 @@ public interface Logger {
         System.out.println(result.toString().trim());
     }
 
-//    default void logWithMarkovChainTransformation(String message) {
-//        String[] words = message.split("\\s+");
-//        Map<String, List<String>> markovChain = new HashMap<>();
-//
-//        for (int i = 0; i < words.length - 1; i++) {
-//            markovChain.computeIfAbsent(words[i], k -> new ArrayList<>()).add(words[i + 1]);
-//        }
-//
-//        StringBuilder result = new StringBuilder();
-//        Random random = new Random();
-//        String currentWord = words[0];
-//        result.append(currentWord).append(" ");
-//
-//        for (int i = 1; i < words.length; i++) {
-//            List<String> nextWords = markovChain.get(currentWord);
-//            if (nextWords != null && !nextWords.isEmpty()) {
-//                currentWord = nextWords.get(random.nextInt(nextWords.size()));
-//                result.append(currentWord).append(" ");
-//            } else {
-//                break;
-//            }
-//        }
-//
-//        System.out.println(result.toString().trim());
-//    }
+    default void logWithMarkovChainTransformation(String message) {
+        if (message == null || message.split("\\s+").length < 2) {
+            System.out.println(message);  // If less than two words, print as is
+            return;
+        }
+
+        String[] words = message.split("\\s+");
+        Map<String, List<String>> markovChain = new HashMap<>();
+        Random random = new Random();
+
+        for (int i = 0; i < words.length - 1; i++) {
+            String currentWord = words[i];
+            String nextWord = words[i + 1];
+            markovChain.computeIfAbsent(currentWord, k -> new ArrayList<>()).add(nextWord);
+        }
+        markovChain.computeIfAbsent(words[words.length - 1], k -> new ArrayList<>()).add(words[0]);
+
+        String currentWord = words[random.nextInt(words.length)];
+        StringBuilder result = new StringBuilder(currentWord).append(" ");
+
+        for (int i = 1; i < words.length; i++) {
+            List<String> nextWords = markovChain.get(currentWord);
+            if (nextWords != null && !nextWords.isEmpty()) {
+                currentWord = nextWords.get(random.nextInt(nextWords.size()));
+                result.append(currentWord).append(" ");
+            } else {
+                break;
+            }
+        }
+
+        System.out.println(result.toString().trim());
+    }
+
+    default void logIf(String message, Predicate<String> condition) {
+        if (condition.test(message)) {
+            System.out.println(message);
+        }
+    }
+
+    int ERROR = 1;
+    int WARNING = 2;
+    int INFO = 3;
+    int DEBUG = 4;
+    int TRACE = 5;
+
+    // Log level for the current logger
+    int logLevel = INFO;
+
+    // Factory method to create a level-based logger
+    static Logger getLevelBasedLogger(int logLevel) {
+        return new Logger() {
+            private final int level = logLevel;
+
+            @Override
+            public void log(String message) {
+
+            }
+
+            @Override
+            public boolean shouldLog(int messageLogLevel) {
+                return messageLogLevel <= this.level;
+            }
+        };
+    }
+
+    // Method to check if the message should be logged based on log level
+    default boolean shouldLog(int messageLogLevel) {
+        return messageLogLevel <= logLevel;
+    }
+
+    // Log level specific methods
+    default void error(String message) {
+        if (shouldLog(ERROR)) {
+            log("ERROR: " + message, "\u001B[31m");
+        }
+    }
+
+    default void warn(String message) {
+        if (shouldLog(WARNING)) {
+            log("WARNING: " + message, "\u001B[33m");
+        }
+    }
+
+    default void info(String message) {
+        if (shouldLog(INFO)) {
+            log("INFO: " + message, "\u001B[32m");
+        }
+    }
+
+    default void debug(String message) {
+        if (shouldLog(DEBUG)) {
+            log("DEBUG: " + message, "\u001B[34m");
+        }
+    }
+
+    default void trace(String message) {
+        if (shouldLog(TRACE)) {
+            log("TRACE: " + message, "\u001B[35m");
+        }
+    }
+
+    // Helper method to log messages with color coding
+    default void log(String message, String color) {
+        System.out.println(color + message + "\u001B[0m");
+    }
+
+    // Timestamped logging
+    default void logWithTimestamp(String message) {
+        String timestamp = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        log("[" + timestamp + "] " + message, "\u001B[37m");
+    }
+
+    // Elapsed time logging
+    default void logWithElapsedTime(String message, Runnable operation) {
+        long startTime = System.currentTimeMillis();
+        operation.run();
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        log(message + " [Elapsed time: " + (elapsedTime / 1000.0) + " seconds]", "\u001B[37m");
+    }
+
+    // Contextual logging
+    default void logWithContext(String message, Map<String, String> context) {
+        StringBuilder contextInfo = new StringBuilder();
+        context.forEach((key, value) -> contextInfo.append(key).append("=").append(value).append(", "));
+        if (contextInfo.length() > 0) {
+            contextInfo.setLength(contextInfo.length() - 2); // Remove last comma and space
+        }
+        log(message + " [" + contextInfo + "]", "\u001B[37m");
+    }
+
+    // Pattern-based logging
+    default void logIfMatchesPattern(String message, String pattern) {
+        if (message.matches(pattern)) {
+            log(message, "\u001B[37m");
+        }
+    }
+
+    // Progress bar logging
+    default void logWithProgressBar(String message, int currentProgress, int totalProgress) {
+        if (currentProgress < 0 || totalProgress <= 0 || currentProgress > totalProgress) {
+            throw new IllegalArgumentException("Invalid progress values.");
+        }
+
+        int progressBarLength = 10;
+        int progressUnits = (int) ((currentProgress / (double) totalProgress) * progressBarLength);
+        String progressBar = "[" + "#".repeat(progressUnits) + "-".repeat(progressBarLength - progressUnits) + "]";
+        int percentage = (int) ((currentProgress / (double) totalProgress) * 100);
+
+        log(message + " " + progressBar + " " + percentage + "%", "\u001B[37m");
+    }
+
+    // Time-zone-based logging
+    default void logWithTimeZone(String message, ZoneId timeZone) {
+        String timestamp = ZonedDateTime.now(timeZone).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"));
+        log("[" + timestamp + "] " + message, "\u001B[37m");
+    }
 
 }
