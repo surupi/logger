@@ -4,6 +4,7 @@ import org.example.Emoji;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class LoggerTest {
     public static void main(String[] args) {
@@ -17,8 +18,8 @@ public class LoggerTest {
         leetLogger.log("Hello world!");
 
         // Caesar Cipher Logging
-//        Logger caesarLogger = Logger.getCaesarCipherLogger(3);
-//        caesarLogger.log("attack at dawn");
+        Logger caesarLogger = Logger.getCaesarCipherLogger(3);
+        caesarLogger.log("attack at dawn");
 
         // Colored and Styled Logging
         Logger styledLogger = Logger.getStyledLogger(ColorCodes.GREEN, ColorCodes.BLUE_BG, ColorCodes.BOLD);
@@ -28,22 +29,22 @@ public class LoggerTest {
         Function<String, String> transformation = message -> message.replace("Hello", "Hi");
         Logger transformationLogger = (message) -> System.out.println(transformation.apply(message));
         transformationLogger.log("Hello world!");
-//
-//        // Using Predicate for message filtering
-//        Predicate<String> filter = message -> !message.contains("error");
-//        String messageToLog = "This is a normal message.";
-//        if (filter.test(messageToLog)) {
-//            logger.log(messageToLog);
-//        }
-//
-//        // Using composed transformations
-//        Function<String, String> upperCase = message -> message.toUpperCase();
-//        Function<String, String> leet = message -> message
-//                .replace("o", "0")
-//                .replace("s", "5")
-//                .replace("e", "3");
-//        Function<String, String> combinedTransformation = upperCase.andThen(leet);
-//        logger.logWithTransformation(combinedTransformation, "Hello leetspeak");
+
+        // Using Predicate for message filtering
+        Predicate<String> filter = message -> true;
+        String messageToLog = "This is a normal message.";
+        if (filter.test(messageToLog)) {
+            logger.log(messageToLog);
+        }
+
+        // Using composed transformations
+        Function<String, String> upperCase = String::toUpperCase;
+        Function<String, String> leet = message -> message
+                .replace("o", "0")
+                .replace("s", "5")
+                .replace("e", "3");
+        Function<String, String> combinedTransformation = upperCase.andThen(leet);
+        logger.logWithTransformation(combinedTransformation, "Hello leetspeak");
 
         // Timestamped logging
         logger.logWithTimestamp("This message has a timestamp.");
@@ -117,5 +118,29 @@ public class LoggerTest {
         logger.logInPigLatin("hello world");
         logger.logInPigLatin("This is an apple");
         logger.logInPigLatin("Quick brown fox jumps over the lazy dog");
+
+        // Test ROT13 Logger
+        System.out.println("Testing ROT13:");
+        logger.logWithRot13("hello");
+        logger.logWithRot13("Hello, World!");
+
+        // Test Palindrome Word Filter
+        System.out.println("Testing Palindrome Words:");
+        logger.logPalindromeWords("madam racecar level noon hello");
+
+        // Test Word Frequency Logger
+        System.out.println("Testing Word Frequency:");
+        logger.logWordFrequency("hello world hello");
+
+        // Test Word Length Scrambler
+        logger.logWithLengthScrambledWords("I love programming in Java");
+        logger.logWithLengthScrambledWords("The quick brown fox");
+
+        logger.logWithConditionalReversedWords("The quick brown fox jumps over the lazy dog", 4);
+
+        logger.logWithCharacterScrambledWords("Hello world");
+        logger.logWithSynonyms("happy");
+//        logger.logWithMarkovChainTransformation("the quick brown fox jumps over the lazy dog");
+
     }
 }

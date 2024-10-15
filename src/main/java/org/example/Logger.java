@@ -7,13 +7,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import j2html.TagCreator;
 
@@ -140,20 +138,20 @@ public interface Logger {
         };
     }
 
-//    static Logger getCaesarCipherLogger(int shift) {
-//        return message -> {
-//            StringBuilder encoded = new StringBuilder();
-//            for (char c : message.toCharArray()) {
-//                if (Character.isLetter(c)) {
-//                    char base = Character.isLowerCase(c) ? 'a' : 'A';
-//                    encoded.append((char) ((c - base + shift) % 26 + base));
-//                } else {
-//                    encoded.append(c);
-//                }
-//            }
-//            System.out.println(encoded.toString());
-//        };
-//    }
+    static Logger getCaesarCipherLogger(int shift) {
+        return message -> {
+            StringBuilder encoded = new StringBuilder();
+            for (char c : message.toCharArray()) {
+                if (Character.isLetter(c)) {
+                    char base = Character.isLowerCase(c) ? 'a' : 'A';
+                    encoded.append((char) ((c - base + shift) % 26 + base));
+                } else {
+                    encoded.append(c);
+                }
+            }
+            System.out.println(encoded.toString());
+        };
+    }
 
     static Logger getStyledLogger(String colorCode, String backgroundColor, String effect) {
         return message -> {
@@ -361,5 +359,137 @@ public interface Logger {
     private boolean isVowel(char c) {
         return "aeiouAEIOU".indexOf(c) != -1;
     }
+
+    default void logWithRot13(String message) {
+        StringBuilder rot13Message = new StringBuilder();
+        for (char ch : message.toCharArray()) {
+            if (Character.isLetter(ch)) {
+                char base = Character.isLowerCase(ch) ? 'a' : 'A';
+                ch = (char) ((ch - base + 13) % 26 + base);
+            }
+            rot13Message.append(ch);
+        }
+        log(rot13Message.toString());
+    }
+
+    default void logPalindromeWords(String message) {
+        String[] words = message.split("\\s+");
+        String palindromes = Arrays.stream(words)
+                .filter(word -> isPalindrome(word))
+                .collect(Collectors.joining(" "));
+        log(palindromes);
+    }
+
+    default void logWordFrequency(String message) {
+        String[] words = message.split("\\s+");
+        Map<String, Long> frequencyMap = Arrays.stream(words)
+                .collect(Collectors.groupingBy(String::toLowerCase, Collectors.counting()));
+        String result = frequencyMap.entrySet().stream()
+                .map(entry -> entry.getKey() + ": " + entry.getValue())
+                .collect(Collectors.joining(", "));
+        log(result);
+    }
+
+    default void logWithLengthScrambledWords(String message) {
+        String[] words = message.split("\\s+");
+        Map<Integer, List<String>> lengthGroups = new TreeMap<>(); // Use TreeMap to maintain natural order by length
+
+        // Group words by their lengths
+        for (String word : words) {
+            int length = word.length();
+            lengthGroups.computeIfAbsent(length, k -> new ArrayList<>()).add(word);
+        }
+
+        StringBuilder scrambledMessage = new StringBuilder();
+        for (List<String> group : lengthGroups.values()) {
+            Collections.shuffle(group); // Shuffle the order of words within the group
+            scrambledMessage.append(String.join(" ", group)).append(" ");
+        }
+
+        log(scrambledMessage.toString().trim());
+    }
+
+    default void logWithConditionalReversedWords(String message, int lengthThreshold) {
+        String[] words = message.split("\\s+");
+        StringBuilder result = new StringBuilder();
+
+        for (String word : words) {
+            if (word.length() > lengthThreshold) {
+                result.append(new StringBuilder(word).reverse().toString()).append(" ");
+            } else {
+                result.append(word).append(" ");
+            }
+        }
+
+        log(result.toString().trim());
+    }
+
+    default void logWithCharacterScrambledWords(String message) {
+        String[] words = message.split("\\s+");
+
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (word.length() > 2) {
+                result.append(scrambleWord(word)).append(" ");
+            } else {
+                result.append(word).append(" ");
+            }
+        }
+
+        System.out.println(result.toString().trim());
+    }
+
+    private String scrambleWord(String word) {
+        char[] chars = word.toCharArray();
+        List<Character> middleChars = new ArrayList<>();
+        for (int i = 1; i < chars.length - 1; i++) {
+            middleChars.add(chars[i]);
+        }
+        Collections.shuffle(middleChars);
+        for (int i = 1; i < chars.length - 1; i++) {
+            chars[i] = middleChars.get(i - 1);
+        }
+        return new String(chars);
+    }
+
+    default void logWithSynonyms(String message) {
+        // Assuming we have a pre-defined map of synonyms
+        Map<String, String> synonyms = Map.of("happy", "content", "sad", "unhappy");
+
+        String[] words = message.split("\\s+");
+        StringBuilder result = new StringBuilder();
+
+        for (String word : words) {
+            result.append(synonyms.getOrDefault(word, word)).append(" ");
+        }
+
+        System.out.println(result.toString().trim());
+    }
+
+//    default void logWithMarkovChainTransformation(String message) {
+//        String[] words = message.split("\\s+");
+//        Map<String, List<String>> markovChain = new HashMap<>();
+//
+//        for (int i = 0; i < words.length - 1; i++) {
+//            markovChain.computeIfAbsent(words[i], k -> new ArrayList<>()).add(words[i + 1]);
+//        }
+//
+//        StringBuilder result = new StringBuilder();
+//        Random random = new Random();
+//        String currentWord = words[0];
+//        result.append(currentWord).append(" ");
+//
+//        for (int i = 1; i < words.length; i++) {
+//            List<String> nextWords = markovChain.get(currentWord);
+//            if (nextWords != null && !nextWords.isEmpty()) {
+//                currentWord = nextWords.get(random.nextInt(nextWords.size()));
+//                result.append(currentWord).append(" ");
+//            } else {
+//                break;
+//            }
+//        }
+//
+//        System.out.println(result.toString().trim());
+//    }
 
 }
