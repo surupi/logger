@@ -1,11 +1,21 @@
 package org.example;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import j2html.TagCreator;
 
 @FunctionalInterface
 public interface Logger {
@@ -55,8 +65,31 @@ public interface Logger {
     }
 
     default void logWithSentimentHighlight(String message) {
-        String highlightedMessage = highlightSentiment(message);
-        log(highlightedMessage);
+        Set<String> positiveWords = new HashSet<>();
+        Set<String> negativeWords = new HashSet<>();
+
+        // Define positive and negative words
+        positiveWords.add("good");
+        positiveWords.add("great");
+        positiveWords.add("happy");
+        positiveWords.add("fantastic");
+
+        negativeWords.add("bad");
+        negativeWords.add("sad");
+        negativeWords.add("hate");
+        negativeWords.add("terrible");
+
+        String lowerCaseMessage = message.toLowerCase();
+        boolean isPositive = positiveWords.stream().anyMatch(lowerCaseMessage::contains);
+        boolean isNegative = negativeWords.stream().anyMatch(lowerCaseMessage::contains);
+
+        if (isPositive) {
+            log(ColorCodes.GREEN + message + ColorCodes.RESET);
+        } else if (isNegative) {
+            log(ColorCodes.RED + message + ColorCodes.RESET);
+        } else {
+            log(message);
+        }
     }
 
     default void logWithTimestamp(String message) {
@@ -73,13 +106,13 @@ public interface Logger {
 
     private String translate(String message, String languageCode) {
         Map<String, String> translationMap = new HashMap<>();
-        translationMap.put("Hello", "Hola"); // Spanish
-        translationMap.put("Goodbye", "Adios"); // Spanish
-        translationMap.put("Yes", "Sí"); // Spanish
-        translationMap.put("No", "No"); // Spanish
-        translationMap.put("Thank you", "Gracias"); // Spanish
-        translationMap.put("Hello", "Bonjour"); // French
-        translationMap.put("Thank you", "Merci"); // French
+        translationMap.put("Hello", "Hola");
+        translationMap.put("Goodbye", "Adios");
+        translationMap.put("Yes", "Sí");
+        translationMap.put("No", "No");
+        translationMap.put("Thank you", "Gracias");
+        translationMap.put("Hello", "Bonjour");
+        translationMap.put("Thank you", "Merci");
 
         // Defaulting to English if the translation is unavailable
         String translatedWord = translationMap.getOrDefault(message, message);
@@ -92,39 +125,12 @@ public interface Logger {
         return translatedWord;
     }
 
-    private String highlightSentiment(String message) {
-        String[] positiveWords = { "good", "great", "happy", "wonderful", "fantastic", "love", "excellent", "amazing" };
-        String[] negativeWords = { "bad", "sad", "hate", "terrible", "horrible", "awful", "worst", "angry" };
-
-        boolean isPositive = false;
-        boolean isNegative = false;
-
-        for (String word : positiveWords) {
-            if (message.toLowerCase().contains(word)) {
-                isPositive = true;
-                break;
-            }
-        }
-
-        for (String word : negativeWords) {
-            if (message.toLowerCase().contains(word)) {
-                isNegative = true;
-                break;
-            }
-        }
-
-        // Highlight based on sentiment
-        if (isPositive) {
-            return ColorCodes.GREEN + message + ColorCodes.RESET; // Positive messages in green
-        } else if (isNegative) {
-            return ColorCodes.RED + message + ColorCodes.RESET; // Negative messages in red
-        }
-
-        return message; // Neutral messages remain unchanged
+    static Logger getRedDefaultLogger() {
+        return message -> System.out.println(ColorCodes.RED + message + ColorCodes.RESET);
     }
 
     static Logger getDefaultLogger() {
-        return message -> System.out.println(ColorCodes.RED + message + ColorCodes.RESET);
+        return System.out::println;
     }
 
     static Logger getLeetLogger() {
@@ -154,4 +160,206 @@ public interface Logger {
             System.out.println(colorCode + backgroundColor + effect + message + ColorCodes.RESET);
         };
     }
+
+    default void logAsJson(Object data) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            String json = objectMapper.writeValueAsString(data);
+            log(json);
+        } catch (Exception e) {
+//            log("Failed to log as JSON: " + e.getMessage());
+            log(data.toString());
+        }
+    }
+
+    static Logger getEnvironmentAwareLogger() {
+        String environment = System.getProperty("app.environment", "development").toLowerCase();
+
+        if ("production".equals(environment)) {
+            return message -> System.out.println("[INFO] " + message);
+        } else {
+            return message -> {
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                System.out.println("[DEV] " + timestamp + " - " + message);
+            };
+        }
+    }
+
+    default void logWithDetails(String message) {
+        log("Detailed Log: " + message);
+    }
+
+    default void logWithEmoji(String message, Emoji emoji) {
+        log(emoji.getSymbol() + " " + message);
+    }
+
+    default void logWithHtmlStyle(String message, String cssStyles) {
+        String htmlMessage = TagCreator.span(message).withStyle(cssStyles).render();
+        log(htmlMessage);
+    }
+
+    static Logger getFileLogger(String filePath) {
+        return message -> {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, true))) {
+                writer.write(message);
+                writer.newLine();
+            } catch (IOException e) {
+                System.err.println("Failed to log to file: " + e.getMessage());
+            }
+        };
+    }
+
+    default void logWithCategory(String message, String category) {
+        log("[" + category.toUpperCase() + "] " + message);
+    }
+
+    default void logAndHighlightPalindromes(String message, String highlightColor) {
+        // Pattern to find words, ignoring punctuation
+        Pattern wordPattern = Pattern.compile("\\b\\w+\\b");
+        Matcher matcher = wordPattern.matcher(message);
+
+        StringBuilder highlightedMessage = new StringBuilder();
+        int lastIndex = 0;
+
+        while (matcher.find()) {
+            String word = matcher.group();
+            String cleanWord = word.replaceAll("[^a-zA-Z]", "").toLowerCase();
+
+            if (isPalindrome(cleanWord)) {
+                // Highlight the palindrome
+                highlightedMessage.append(message, lastIndex, matcher.start())
+                        .append(highlightColor).append(word).append(ColorCodes.RESET);
+                lastIndex = matcher.end();
+            }
+        }
+
+        // Append the rest of the message
+        highlightedMessage.append(message.substring(lastIndex));
+
+        // Log the final message
+        log(highlightedMessage.toString());
+    }
+
+    default void logBase64Encoded(String message) {
+        String encodedMessage = java.util.Base64.getEncoder().encodeToString(message.getBytes());
+        log(encodedMessage);
+    }
+
+    default void logBase64Decoded(String message) {
+        byte[] decodedBytes = java.util.Base64.getDecoder().decode(message);
+        String decodedMessage = new String(decodedBytes);
+        log(decodedMessage);
+    }
+
+    private boolean isPalindrome(String word) {
+        return word.length() > 1 && word.equals(new StringBuilder(word).reverse().toString());
+    }
+
+    default void logInMorseCode(String message) {
+        Map<Character, String> morseCodeMap = createMorseCodeMap();
+        StringBuilder morseMessage = new StringBuilder();
+
+        message = message.toLowerCase();
+
+        for (char ch : message.toCharArray()) {
+            if (ch == ' ') {
+                morseMessage.append("/ ");
+            } else if (morseCodeMap.containsKey(ch)) {
+                morseMessage.append(morseCodeMap.get(ch)).append(" ");
+            } else {
+                System.out.println("Character '" + ch + "' could not be translated.");
+            }
+        }
+        log(morseMessage.toString().trim());
+    }
+
+    private Map<Character, String> createMorseCodeMap() {
+        Map<Character, String> morseCodeMap = new HashMap<>();
+        morseCodeMap.put('a', ".-");
+        morseCodeMap.put('b', "-...");
+        morseCodeMap.put('c', "-.-.");
+        morseCodeMap.put('d', "-..");
+        morseCodeMap.put('e', ".");
+        morseCodeMap.put('f', "..-.");
+        morseCodeMap.put('g', "--.");
+        morseCodeMap.put('h', "....");
+        morseCodeMap.put('i', "..");
+        morseCodeMap.put('j', ".---");
+        morseCodeMap.put('k', "-.-");
+        morseCodeMap.put('l', ".-..");
+        morseCodeMap.put('m', "--");
+        morseCodeMap.put('n', "-.");
+        morseCodeMap.put('o', "---");
+        morseCodeMap.put('p', ".--.");
+        morseCodeMap.put('q', "--.-");
+        morseCodeMap.put('r', ".-.");
+        morseCodeMap.put('s', "...");
+        morseCodeMap.put('t', "-");
+        morseCodeMap.put('u', "..-");
+        morseCodeMap.put('v', "...-");
+        morseCodeMap.put('w', ".--");
+        morseCodeMap.put('x', "-..-");
+        morseCodeMap.put('y', "-.--");
+        morseCodeMap.put('z', "--..");
+        morseCodeMap.put('0', "-----");
+        morseCodeMap.put('1', ".----");
+        morseCodeMap.put('2', "..---");
+        morseCodeMap.put('3', "...--");
+        morseCodeMap.put('4', "....-");
+        morseCodeMap.put('5', ".....");
+        morseCodeMap.put('6', "-....");
+        morseCodeMap.put('7', "--...");
+        morseCodeMap.put('8', "---..");
+        morseCodeMap.put('9', "----.");
+        morseCodeMap.put('.', ".-.-.-");
+        morseCodeMap.put(',', "--..--");
+        morseCodeMap.put('?', "..--..");
+        morseCodeMap.put('!', "-.-.--");
+        return morseCodeMap;
+    }
+
+    default void logInPigLatin(String message) {
+        StringBuilder pigLatinMessage = new StringBuilder();
+
+        // Split the message while keeping spaces intact
+        String[] words = message.split("(?<=\\s)|(?=\\s)"); // Regex to preserve spaces
+
+        for (String word : words) {
+            if (word.matches("[a-zA-Z]+")) { // Check if the token is a word
+                pigLatinMessage.append(convertToPigLatin(word));
+            } else {
+                pigLatinMessage.append(word); // Preserve non-word characters
+            }
+        }
+
+        log(pigLatinMessage.toString().trim()); // Log the transformed message
+    }
+
+    private String convertToPigLatin(String word) {
+        char firstChar = word.charAt(0);
+        String lowerCaseWord = word.toLowerCase();
+
+        if (isVowel(firstChar)) {
+            return word + "way"; // Append "way" for words starting with a vowel
+        } else {
+            // Handle consonants
+            int index = 0;
+            while (index < lowerCaseWord.length() && !isVowel(lowerCaseWord.charAt(index))) {
+                index++;
+            }
+
+            String consonantCluster = word.substring(0, index);
+            String pigLatinWord = word.substring(index) + consonantCluster + "ay";
+            // Preserve the capitalization of the first letter
+            if (Character.isUpperCase(firstChar)) {
+                pigLatinWord = Character.toUpperCase(pigLatinWord.charAt(0)) + pigLatinWord.substring(1).toLowerCase();
+            }
+            return pigLatinWord;
+        }
+    }
+
+    private boolean isVowel(char c) {
+        return "aeiouAEIOU".indexOf(c) != -1;
+    }
+
 }

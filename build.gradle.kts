@@ -12,6 +12,8 @@ repositories {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    implementation ("com.fasterxml.jackson.core:jackson-databind:2.15.2") //objectmapper
+    implementation ("com.j2html:j2html:1.6.0") //logWithHtmlStyle - tagcreator
 }
 
 tasks.test {
